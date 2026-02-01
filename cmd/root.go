@@ -15,13 +15,17 @@ import (
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "readme-runner",
-	Short: "A brief description of your application",
-	Long: `A longer description that spans multiple lines and likely contains
-examples and usage of using your application. For example:
+	Short: "Run and verify code examples from README and documentation files",
+	Long: `readme-runner executes code examples embedded in README and other
+documentation files to ensure they stay correct and up to date.
 
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+By running your documented examples as part of CI or local checks,
+readme-runner helps prevent code samples from drifting out of sync
+with the actual behavior of your application.
+
+Typical usage:
+  readme-runner path/to/README.md
+  readme-runner docs/ --recursive`,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	// Run: func(cmd *cobra.Command, args []string) { },
