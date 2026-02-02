@@ -7,8 +7,10 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/sony-level/readme-runner/internal/fetcher"
+	"github.com/sony-level/readme-runner/internal/scanner"
 	"github.com/sony-level/readme-runner/internal/workspace"
 	"github.com/spf13/cobra"
 )
@@ -110,20 +112,70 @@ func executeRun(inputPath string) error {
 
 	// Fetch the project
 	fmt.Printf("  → Fetching project...\n")
-	result, err := fetcher.Fetch(fetchConfig)
+	fetchResult, err := fetcher.Fetch(fetchConfig)
 	if err != nil {
 		return fmt.Errorf("failed to fetch project: %w", err)
 	}
 
 	fmt.Printf("  → Fetched %d files (%d bytes) to %s\n",
-		result.FilesCopied, result.BytesCopied, result.Destination)
-	if result.IsGitRepo {
+		fetchResult.FilesCopied, fetchResult.BytesCopied, fetchResult.Destination)
+	if fetchResult.IsGitRepo {
 		fmt.Printf("  → Source is a git repository\n")
 	}
 
 	// Phase 2: Scan
 	fmt.Println("\n[2/7] Scan")
-	fmt.Println("  → (not implemented)")
+	fmt.Printf("  → Scanning workspace for project files...\n")
+
+	scanConfig := &scanner.ScanConfig{
+		RootPath: ws.RepoPath(),
+		MaxDepth: 3,
+		Verbose:  verbose,
+	}
+
+	scanResult, err := scanner.Scan(scanConfig)
+	if err != nil {
+		return fmt.Errorf("failed to scan workspace: %w", err)
+	}
+
+	fmt.Printf("  → Scanned %d files in %d directories (%v)\n",
+		scanResult.TotalFiles, scanResult.TotalDirs, scanResult.ScanDuration)
+
+	// Display README info
+	if scanResult.ReadmeFile != nil {
+		fmt.Printf("  → README found: %s (%d bytes)\n",
+			scanResult.ReadmeFile.RelPath, scanResult.ReadmeFile.Size)
+		if verbose {
+			fmt.Printf("    Sections: %d\n", len(scanResult.ReadmeFile.Sections))
+			fmt.Printf("    Code blocks: %d\n", scanResult.ReadmeFile.CodeBlocks)
+			fmt.Printf("    Shell commands: %d\n", scanResult.ReadmeFile.ShellCommands)
+			if scanResult.ReadmeFile.HasInstall {
+				fmt.Printf("    ✓ Has installation section\n")
+			}
+			if scanResult.ReadmeFile.HasUsage {
+				fmt.Printf("    ✓ Has usage section\n")
+			}
+			if scanResult.ReadmeFile.HasBuild {
+				fmt.Printf("    ✓ Has build section\n")
+			}
+		}
+	} else {
+		fmt.Printf("  → ⚠ No README found\n")
+	}
+
+	// Display detected stacks
+	stacks := scanResult.DetectedStacks()
+	if len(stacks) > 0 {
+		fmt.Printf("  → Detected stacks: %s\n", strings.Join(stacks, ", "))
+	}
+
+	// Display project files in verbose mode
+	if verbose && len(scanResult.ProjectFiles) > 0 {
+		fmt.Printf("  → Project files:\n")
+		for fileType, paths := range scanResult.ProjectFiles {
+			fmt.Printf("    %s: %s\n", fileType, strings.Join(paths, ", "))
+		}
+	}
 
 	// Phase 3: Plan (AI)
 	fmt.Println("\n[3/7] Plan (AI)")
