@@ -1,5 +1,5 @@
 /*
-Copyright © 2026 NAME HERE <EMAIL ADDRESS>
+Copyright © 2026 ソニーレベル <C7kali3@gmail.com>
 
 */
 package cmd
@@ -14,18 +14,15 @@ import (
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "readme-runner",
-	Short: "Run and verify code examples from README and documentation files",
-	Long: `readme-runner executes code examples embedded in README and other
-documentation files to ensure they stay correct and up to date.
+	Use:   "readme-run",
+	Short: "Automate installation and launch from README.md",
+	Long: `readme-runner is a fast and accurate standalone command line tool 
+designed to automate the installation and launch of software projects 
+from their README.md file.
 
-By running your documented examples as part of CI or local checks,
-readme-runner helps prevent code samples from drifting out of sync
-with the actual behavior of your application.
-
-Typical usage:
-  readme-runner path/to/README.md
-  readme-runner docs/ --recursive`,
+It takes a local repository path or GitHub URL, analyzes the README
+and key files, generates an installation plan, and executes it safely
+with proper security checks and confirmations`,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	// Run: func(cmd *cobra.Command, args []string) { },
@@ -51,5 +48,3 @@ func init() {
 	// when this action is called directly.
 	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
-
-

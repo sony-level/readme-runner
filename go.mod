@@ -2,6 +2,8 @@ module github.com/sony-level/readme-runner
 
 go 1.25.6
 
+require github.com/spf13/cobra v1.10.2
+
 require (
 	dario.cat/mergo v1.0.0 // indirect
 	github.com/AlecAivazis/survey/v2 v2.3.7 // indirect
@@ -60,3 +62,4 @@ require (
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
+

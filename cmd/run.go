@@ -1,5 +1,5 @@
 /*
-Copyright © 2026 NAME HERE <EMAIL ADDRESS>
+Copyright © 2026 ソニーレベル <c7kali3@gmail.com>
 
 */
 package cmd
