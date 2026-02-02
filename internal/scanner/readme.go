@@ -17,8 +17,11 @@ var (
 	shellBlockRegex    = regexp.MustCompile("^```(bash|sh|shell|console|zsh|powershell|cmd)")
 )
 
-// Maximum README size to load into memory (1MB)
-const maxReadmeSize = 1024 * 1024
+// MaxReadmeSize is the maximum README content to load (512KB)
+const MaxReadmeSize = 512 * 1024
+
+// PreviewLines is the number of lines to show for truncated content
+const PreviewLines = 50
 
 // ParseReadme analyzes a README file and extracts metadata
 func ParseReadme(path, relPath string) (*ReadmeInfo, error) {
@@ -34,17 +37,25 @@ func ParseReadme(path, relPath string) (*ReadmeInfo, error) {
 	defer file.Close()
 
 	readme := &ReadmeInfo{
-		Path:     path,
-		RelPath:  relPath,
-		Size:     info.Size(),
-		Sections: []string{},
+		Path:         path,
+		RelPath:      relPath,
+		Size:         info.Size(),
+		OriginalSize: info.Size(),
+		Sections:     []string{},
 	}
 
-	// Read content if not too large
-	if info.Size() <= maxReadmeSize {
+	// Read content with size limiting
+	if info.Size() <= MaxReadmeSize {
 		content, err := os.ReadFile(path)
 		if err == nil {
 			readme.Content = string(content)
+		}
+	} else {
+		// Load truncated content for large files
+		readme.Truncated = true
+		content, err := loadTruncatedContent(path, MaxReadmeSize)
+		if err == nil {
+			readme.Content = content
 		}
 	}
 
@@ -88,6 +99,30 @@ func ParseReadme(path, relPath string) (*ReadmeInfo, error) {
 	}
 
 	return readme, nil
+}
+
+// loadTruncatedContent loads the first maxBytes of a file
+func loadTruncatedContent(path string, maxBytes int64) (string, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+
+	// Read up to maxBytes
+	content := make([]byte, maxBytes)
+	n, err := file.Read(content)
+	if err != nil {
+		return "", err
+	}
+
+	// Find the last newline to avoid cutting mid-line
+	result := string(content[:n])
+	if lastNewline := strings.LastIndex(result, "\n"); lastNewline > 0 {
+		result = result[:lastNewline]
+	}
+
+	return result, nil
 }
 
 // checkSectionType identifies the type of section based on title

@@ -82,6 +82,19 @@ type ScanResult struct {
 	Errors          []error             // Non-fatal errors during scan
 	PackageManagers []string            // Detected package managers
 	BuildTools      []string            // Detected build tools
+	Profile         *ProjectProfile     // Project profile with signals
+}
+
+// ProjectProfile contains project metadata for AI processing
+type ProjectProfile struct {
+	Root       string   `json:"root"`       // Root path of project
+	Readme     bool     `json:"readme"`     // Has README file
+	Languages  []string `json:"languages"`  // Detected programming languages
+	Tools      []string `json:"tools"`      // Detected tools (npm, docker, etc.)
+	Signals    []string `json:"signals"`    // Key file signals detected
+	Stack      string   `json:"stack"`      // Primary technology stack
+	Containers []string `json:"containers"` // Container/orchestration files
+	Packages   []string `json:"packages"`   // Package manifest files
 }
 
 // ReadmeInfo contains README.md metadata
@@ -97,6 +110,8 @@ type ReadmeInfo struct {
 	HasQuickStart bool     // Has quick start section
 	CodeBlocks    int      // Number of code blocks
 	ShellCommands int      // Number of shell command blocks
+	Truncated     bool     // Whether content was truncated
+	OriginalSize  int64    // Original size before truncation
 }
 
 // HasProjectFile checks if a specific file type was detected
