@@ -3,19 +3,64 @@
 
 package scanner
 
-import "time"
+import (
+	"sort"
+	"time"
+)
 
 // File type constants for detection
 const (
-	FileTypeReadme      = "readme"
-	FileTypePackageJSON = "package.json"
-	FileTypeGoMod       = "go.mod"
-	FileTypePyProject   = "pyproject.toml"
-	FileTypeCargoToml   = "Cargo.toml"
-	FileTypeDockerfile  = "Dockerfile"
-	FileTypeCompose     = "docker-compose"
-	FileTypeMakefile    = "Makefile"
+	// README
+	FileTypeReadme = "readme"
+
+	// Docker
+	FileTypeDockerfile = "Dockerfile"
+	FileTypeCompose    = "docker-compose"
+
+	// Node.js
+	FileTypePackageJSON  = "package.json"
+	FileTypePackageLock  = "package-lock.json"
+	FileTypeYarnLock     = "yarn.lock"
+	FileTypePnpmLock     = "pnpm-lock.yaml"
+	FileTypeBunLock      = "bun.lockb"
+
+	// Python
+	FileTypePyProject    = "pyproject.toml"
 	FileTypeRequirements = "requirements.txt"
+	FileTypeSetupPy      = "setup.py"
+	FileTypePipfile      = "Pipfile"
+	FileTypePoetryLock   = "poetry.lock"
+
+	// Go
+	FileTypeGoMod = "go.mod"
+	FileTypeGoSum = "go.sum"
+
+	// Rust
+	FileTypeCargoToml = "Cargo.toml"
+	FileTypeCargoLock = "Cargo.lock"
+
+	// .NET
+	FileTypeCSProj     = "csproj"
+	FileTypeFSProj     = "fsproj"
+	FileTypeSolution   = "sln"
+	FileTypeNugetPkg   = "packages.config"
+
+	// Java/JVM
+	FileTypePomXML     = "pom.xml"
+	FileTypeBuildGradle = "build.gradle"
+	FileTypeGradleKts  = "build.gradle.kts"
+	FileTypeSettingsGradle = "settings.gradle"
+
+	// Kubernetes
+	FileTypeK8sManifest = "k8s-manifest"
+
+	// Make/Build
+	FileTypeMakefile   = "Makefile"
+	FileTypeCMakeLists = "CMakeLists.txt"
+
+	// Other
+	FileTypeGemfile    = "Gemfile"
+	FileTypeComposerJSON = "composer.json"
 )
 
 // ScanConfig holds configuration for scanning
@@ -28,13 +73,15 @@ type ScanConfig struct {
 
 // ScanResult contains all detected files and metadata
 type ScanResult struct {
-	RootPath     string              // Scanned root path
-	ReadmeFile   *ReadmeInfo         // Primary README.md info
-	ProjectFiles map[string][]string // Map of file type to paths
-	TotalFiles   int                 // Total files scanned
-	TotalDirs    int                 // Total directories scanned
-	ScanDuration time.Duration       // Time taken to scan
-	Errors       []error             // Non-fatal errors during scan
+	RootPath        string              // Scanned root path
+	ReadmeFile      *ReadmeInfo         // Primary README.md info
+	ProjectFiles    map[string][]string // Map of file type to paths
+	TotalFiles      int                 // Total files scanned
+	TotalDirs       int                 // Total directories scanned
+	ScanDuration    time.Duration       // Time taken to scan
+	Errors          []error             // Non-fatal errors during scan
+	PackageManagers []string            // Detected package managers
+	BuildTools      []string            // Detected build tools
 }
 
 // ReadmeInfo contains README.md metadata
@@ -68,23 +115,115 @@ func (r *ScanResult) GetProjectFiles(fileType string) []string {
 
 // DetectedStacks returns a list of detected technology stacks
 func (r *ScanResult) DetectedStacks() []string {
-	var stacks []string
+	stacks := make(map[string]bool)
 
+	// Docker
 	if r.HasProjectFile(FileTypeDockerfile) || r.HasProjectFile(FileTypeCompose) {
-		stacks = append(stacks, "docker")
-	}
-	if r.HasProjectFile(FileTypePackageJSON) {
-		stacks = append(stacks, "node")
-	}
-	if r.HasProjectFile(FileTypeGoMod) {
-		stacks = append(stacks, "go")
-	}
-	if r.HasProjectFile(FileTypePyProject) || r.HasProjectFile(FileTypeRequirements) {
-		stacks = append(stacks, "python")
-	}
-	if r.HasProjectFile(FileTypeCargoToml) {
-		stacks = append(stacks, "rust")
+		stacks["docker"] = true
 	}
 
-	return stacks
+	// Node.js with package manager detection
+	if r.HasProjectFile(FileTypePackageJSON) {
+		stacks["node"] = true
+		// Detect specific package manager
+		switch {
+		case r.HasProjectFile(FileTypePnpmLock):
+			stacks["pnpm"] = true
+		case r.HasProjectFile(FileTypeYarnLock):
+			stacks["yarn"] = true
+		case r.HasProjectFile(FileTypeBunLock):
+			stacks["bun"] = true
+		default:
+			stacks["npm"] = true
+		}
+	}
+
+	// Go
+	if r.HasProjectFile(FileTypeGoMod) {
+		stacks["go"] = true
+	}
+
+	// Python with tool detection
+	if r.HasProjectFile(FileTypePyProject) || r.HasProjectFile(FileTypeRequirements) ||
+		r.HasProjectFile(FileTypeSetupPy) || r.HasProjectFile(FileTypePipfile) {
+		stacks["python"] = true
+		// Detect package manager
+		switch {
+		case r.HasProjectFile(FileTypePoetryLock) || r.HasProjectFile(FileTypePyProject):
+			stacks["poetry"] = true
+		case r.HasProjectFile(FileTypePipfile):
+			stacks["pipenv"] = true
+		default:
+			stacks["pip"] = true
+		}
+	}
+
+	// Rust
+	if r.HasProjectFile(FileTypeCargoToml) {
+		stacks["rust"] = true
+		stacks["cargo"] = true
+	}
+
+	// .NET
+	if r.HasProjectFile(FileTypeCSProj) || r.HasProjectFile(FileTypeFSProj) || r.HasProjectFile(FileTypeSolution) {
+		stacks["dotnet"] = true
+	}
+
+	// Java/JVM
+	if r.HasProjectFile(FileTypePomXML) {
+		stacks["java"] = true
+		stacks["maven"] = true
+	}
+	if r.HasProjectFile(FileTypeBuildGradle) || r.HasProjectFile(FileTypeGradleKts) {
+		stacks["java"] = true
+		stacks["gradle"] = true
+	}
+
+	// Kubernetes
+	if r.HasProjectFile(FileTypeK8sManifest) {
+		stacks["kubernetes"] = true
+	}
+
+	// Ruby
+	if r.HasProjectFile(FileTypeGemfile) {
+		stacks["ruby"] = true
+		stacks["bundler"] = true
+	}
+
+	// PHP
+	if r.HasProjectFile(FileTypeComposerJSON) {
+		stacks["php"] = true
+		stacks["composer"] = true
+	}
+
+	// Convert map to sorted slice
+	result := make([]string, 0, len(stacks))
+	for stack := range stacks {
+		result = append(result, stack)
+	}
+	sort.Strings(result)
+	return result
+}
+
+// PrimaryStack returns the main technology stack (first non-tool stack)
+func (r *ScanResult) PrimaryStack() string {
+	// Priority order for primary stack detection
+	priorities := []string{"docker", "node", "go", "python", "rust", "java", "dotnet", "ruby", "php"}
+
+	for _, stack := range priorities {
+		if r.HasStack(stack) {
+			return stack
+		}
+	}
+	return "unknown"
+}
+
+// HasStack checks if a specific stack was detected
+func (r *ScanResult) HasStack(stack string) bool {
+	for _, s := range r.DetectedStacks() {
+		if s == stack {
+			return true
+		}
+	}
+	return false
 }
