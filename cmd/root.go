@@ -10,22 +10,31 @@ import (
 	"github.com/spf13/cobra"
 )
 
-
+var (
+	// Global flags
+	keepWorkspace bool
+	dryRun        bool
+	verbose       bool
+	yesFlag       bool
+)
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "readme-run",
 	Short: "Automate installation and launch from README.md",
-	Long: `readme-runner is a fast and accurate standalone command line tool 
-designed to automate the installation and launch of software projects 
+	Long: `readme-runner is a fast and accurate standalone command line tool
+designed to automate the installation and launch of software projects
 from their README.md file.
 
 It takes a local repository path or GitHub URL, analyzes the README
 and key files, generates an installation plan, and executes it safely
-with proper security checks and confirmations`,
-	// Uncomment the following line if your bare application
-	// has an action associated with it:
-	// Run: func(cmd *cobra.Command, args []string) { },
+with proper security checks and confirmations.
+
+Examples:
+  rd-run .
+  rd-run https://github.com/user/repo
+  rd-run . --dry-run
+  rd-run . --keep --verbose`,
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -38,13 +47,9 @@ func Execute() {
 }
 
 func init() {
-	// Here you will define your flags and configuration settings.
-	// Cobra supports persistent flags, which, if defined here,
-	// will be global for your application.
-
-	// rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.readme-runner.yaml)")
-
-	// Cobra also supports local flags, which will only run
-	// when this action is called directly.
-	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	// Persistent flags - available to all subcommands
+	rootCmd.PersistentFlags().BoolVar(&keepWorkspace, "keep", false, "Keep workspace directory after execution (.rr-temp/<run-id>)")
+	rootCmd.PersistentFlags().BoolVar(&dryRun, "dry-run", true, "Show plan without executing (default: true)")
+	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose output")
+	rootCmd.PersistentFlags().BoolVarP(&yesFlag, "yes", "y", false, "Auto-accept prompts (except security-critical)")
 }
