@@ -1,5 +1,5 @@
 /*
-Copyright © 2026
+Copyright © 2026 ソニーレベル <C7kali3@gmail.com>
 */
 package main
 
