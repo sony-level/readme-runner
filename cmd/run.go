@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/sony-level/readme-runner/internal/fetcher"
 	"github.com/sony-level/readme-runner/internal/workspace"
 	"github.com/spf13/cobra"
 )
@@ -21,11 +22,12 @@ plan, and execute it (or simulate with --dry-run).
 
 Arguments:
   path    Local directory path to analyze
-  url     GitHub repository URL to clone and analyze
+  url     GitHub/GitLab repository URL to clone and analyze
 
 Examples:
   rd-run run .
   rd-run run https://github.com/user/repo
+  rd-run run https://gitlab.com/user/repo
   rd-run run . --dry-run --verbose
   rd-run run . --keep`,
 	Args: cobra.MaximumNArgs(1),
@@ -85,6 +87,10 @@ func executeRun(inputPath string) error {
 	fmt.Printf("Run ID: %s\n", ws.RunID)
 	fmt.Printf("Input: %s\n", inputPath)
 
+	// Detect source type for display
+	sourceType := fetcher.DetectSourceType(inputPath)
+	fmt.Printf("Source type: %s\n", sourceType)
+
 	if dryRun {
 		fmt.Println("\n[DRY-RUN MODE] No commands will be executed.")
 	}
@@ -93,7 +99,28 @@ func executeRun(inputPath string) error {
 	fmt.Println("\n[1/7] Fetch / Workspace")
 	fmt.Printf("  → Workspace ready at %s\n", ws.Path)
 
-	// TODO: Implement remaining phases
+	// Configure fetcher
+	fetchConfig := &fetcher.FetchConfig{
+		Source:       inputPath,
+		Destination:  ws.RepoPath(),
+		Verbose:      verbose,
+		Progress:     os.Stdout,
+		ShallowClone: true, // Use shallow clone for efficiency
+	}
+
+	// Fetch the project
+	fmt.Printf("  → Fetching project...\n")
+	result, err := fetcher.Fetch(fetchConfig)
+	if err != nil {
+		return fmt.Errorf("failed to fetch project: %w", err)
+	}
+
+	fmt.Printf("  → Fetched %d files (%d bytes) to %s\n",
+		result.FilesCopied, result.BytesCopied, result.Destination)
+	if result.IsGitRepo {
+		fmt.Printf("  → Source is a git repository\n")
+	}
+
 	// Phase 2: Scan
 	fmt.Println("\n[2/7] Scan")
 	fmt.Println("  → (not implemented)")
