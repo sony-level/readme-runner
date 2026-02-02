@@ -145,6 +145,29 @@ func executeRun(inputPath string) error {
 	if scanResult.ReadmeFile != nil {
 		fmt.Printf("  → README found: %s (%d bytes)\n",
 			scanResult.ReadmeFile.RelPath, scanResult.ReadmeFile.Size)
+
+		// Show README preview in verbose mode
+		if verbose && scanResult.ReadmeFile.Content != "" {
+			lines := strings.Split(scanResult.ReadmeFile.Content, "\n")
+			fmt.Printf("    Preview:\n")
+			previewLines := 0
+			for _, line := range lines {
+				if previewLines >= 5 { // Show first 5 non-empty lines
+					fmt.Printf("      ...\n")
+					break
+				}
+				trimmed := strings.TrimSpace(line)
+				if trimmed != "" {
+					// Truncate long lines
+					if len(trimmed) > 60 {
+						trimmed = trimmed[:57] + "..."
+					}
+					fmt.Printf("      %s\n", trimmed)
+					previewLines++
+				}
+			}
+		}
+
 		if verbose {
 			fmt.Printf("    Sections: %d\n", len(scanResult.ReadmeFile.Sections))
 			fmt.Printf("    Code blocks: %d\n", scanResult.ReadmeFile.CodeBlocks)
@@ -158,6 +181,9 @@ func executeRun(inputPath string) error {
 			if scanResult.ReadmeFile.HasBuild {
 				fmt.Printf("    ✓ Has build section\n")
 			}
+			if scanResult.ReadmeFile.HasQuickStart {
+				fmt.Printf("    ✓ Has quick start section\n")
+			}
 		}
 	} else {
 		fmt.Printf("  → ⚠ No README found\n")
@@ -166,7 +192,8 @@ func executeRun(inputPath string) error {
 	// Display detected stacks
 	stacks := scanResult.DetectedStacks()
 	if len(stacks) > 0 {
-		fmt.Printf("  → Detected stacks: %s\n", strings.Join(stacks, ", "))
+		fmt.Printf("  → Primary stack: %s\n", scanResult.PrimaryStack())
+		fmt.Printf("  → All stacks: %s\n", strings.Join(stacks, ", "))
 	}
 
 	// Display project files in verbose mode
