@@ -1,5 +1,5 @@
 /*
-Copyright © 2026 NAME HERE <EMAIL ADDRESS>
+Copyright © 2026
 
 */
 package cmd
@@ -13,13 +13,13 @@ import (
 // runCmd represents the run command
 var runCmd = &cobra.Command{
 	Use:   "run",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
+	Short: "Run code examples and commands defined in project README files.",
+	Long: `The run command executes code examples, snippets, or tasks defined in README
+files for this project. It is intended to validate that documented commands
+and workflows in your README actually run as described.
 
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+Use this command to automatically run the documented steps from your README
+so you can verify that the instructions remain up to date and working.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("run called")
 	},
