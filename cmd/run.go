@@ -7,8 +7,10 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/sony-level/readme-runner/internal/fetcher"
+	"github.com/sony-level/readme-runner/internal/scanner"
 	"github.com/sony-level/readme-runner/internal/workspace"
 	"github.com/spf13/cobra"
 )
@@ -110,20 +112,138 @@ func executeRun(inputPath string) error {
 
 	// Fetch the project
 	fmt.Printf("  → Fetching project...\n")
-	result, err := fetcher.Fetch(fetchConfig)
+	fetchResult, err := fetcher.Fetch(fetchConfig)
 	if err != nil {
 		return fmt.Errorf("failed to fetch project: %w", err)
 	}
 
 	fmt.Printf("  → Fetched %d files (%d bytes) to %s\n",
-		result.FilesCopied, result.BytesCopied, result.Destination)
-	if result.IsGitRepo {
+		fetchResult.FilesCopied, fetchResult.BytesCopied, fetchResult.Destination)
+	if fetchResult.IsGitRepo {
 		fmt.Printf("  → Source is a git repository\n")
 	}
 
 	// Phase 2: Scan
 	fmt.Println("\n[2/7] Scan")
-	fmt.Println("  → (not implemented)")
+	fmt.Printf("  → Scanning workspace for project files...\n")
+
+	scanConfig := &scanner.ScanConfig{
+		RootPath: ws.RepoPath(),
+		MaxDepth: 3,
+		Verbose:  verbose,
+	}
+
+	scanResult, err := scanner.Scan(scanConfig)
+	if err != nil {
+		return fmt.Errorf("failed to scan workspace: %w", err)
+	}
+
+	fmt.Printf("  → Scanned %d files in %d directories (%v)\n",
+		scanResult.TotalFiles, scanResult.TotalDirs, scanResult.ScanDuration)
+
+	// Display README info
+	if scanResult.ReadmeFile != nil {
+		fmt.Printf("  → README found: %s (%d bytes)\n",
+			scanResult.ReadmeFile.RelPath, scanResult.ReadmeFile.Size)
+
+		// Show README preview in verbose mode
+		if verbose && scanResult.ReadmeFile.Content != "" {
+			lines := strings.Split(scanResult.ReadmeFile.Content, "\n")
+			fmt.Printf("    Preview:\n")
+			previewLines := 0
+			for _, line := range lines {
+				if previewLines >= 5 { // Show first 5 non-empty lines
+					fmt.Printf("      ...\n")
+					break
+				}
+				trimmed := strings.TrimSpace(line)
+				if trimmed != "" {
+					// Truncate long lines
+					if len(trimmed) > 60 {
+						trimmed = trimmed[:57] + "..."
+					}
+					fmt.Printf("      %s\n", trimmed)
+					previewLines++
+				}
+			}
+
+			// Show truncation warning
+			if scanResult.ReadmeFile.Truncated {
+				fmt.Printf("    (Content truncated: was %d bytes)\n",
+					scanResult.ReadmeFile.OriginalSize)
+			}
+		}
+
+		if verbose {
+			fmt.Printf("    Sections: %d\n", len(scanResult.ReadmeFile.Sections))
+			fmt.Printf("    Code blocks: %d\n", scanResult.ReadmeFile.CodeBlocks)
+			fmt.Printf("    Shell commands: %d\n", scanResult.ReadmeFile.ShellCommands)
+			if scanResult.ReadmeFile.HasInstall {
+				fmt.Printf("    ✓ Has installation section\n")
+			}
+			if scanResult.ReadmeFile.HasUsage {
+				fmt.Printf("    ✓ Has usage section\n")
+			}
+			if scanResult.ReadmeFile.HasBuild {
+				fmt.Printf("    ✓ Has build section\n")
+			}
+			if scanResult.ReadmeFile.HasQuickStart {
+				fmt.Printf("    ✓ Has quick start section\n")
+			}
+		}
+	} else {
+		fmt.Printf("  → ⚠ No README found\n")
+	}
+
+	// Display detected stacks
+	stacks := scanResult.DetectedStacks()
+	if len(stacks) > 0 {
+		fmt.Printf("  → Primary stack: %s\n", scanResult.PrimaryStack())
+		fmt.Printf("  → All stacks: %s\n", strings.Join(stacks, ", "))
+	}
+
+	// Display ProjectProfile in verbose mode
+	if verbose && scanResult.Profile != nil {
+		profile := scanResult.Profile
+
+		fmt.Printf("  → Project Profile:\n")
+		fmt.Printf("    Root: %s\n", profile.Root)
+		fmt.Printf("    Primary stack: %s\n", profile.Stack)
+
+		if len(profile.Languages) > 0 {
+			fmt.Printf("    Languages: %s\n", strings.Join(profile.Languages, ", "))
+		}
+
+		if len(profile.Tools) > 0 {
+			fmt.Printf("    Tools: %s\n", strings.Join(profile.Tools, ", "))
+		}
+
+		if len(profile.Containers) > 0 {
+			fmt.Printf("    Containers: %s\n", strings.Join(profile.Containers, ", "))
+		}
+
+		if len(profile.Packages) > 0 {
+			fmt.Printf("    Package files: %s\n", strings.Join(profile.Packages, ", "))
+		}
+
+		if len(profile.Signals) > 0 {
+			maxSignals := 5
+			if len(profile.Signals) <= maxSignals {
+				fmt.Printf("    Key signals: %s\n", strings.Join(profile.Signals, ", "))
+			} else {
+				fmt.Printf("    Key signals: %s\n", strings.Join(profile.Signals[:maxSignals], ", "))
+				fmt.Printf("      ... and %d more\n", len(profile.Signals)-maxSignals)
+			}
+		}
+	}
+
+	// Display project files in verbose mode
+	if verbose && len(scanResult.ProjectFiles) > 0 {
+		fmt.Printf("  → Project files:\n")
+		for fileType, paths := range scanResult.ProjectFiles {
+			fmt.Printf("    %s: %s\n", fileType, strings.Join(paths, ", "))
+		}
+	}
 
 	// Phase 3: Plan (AI)
 	fmt.Println("\n[3/7] Plan (AI)")
