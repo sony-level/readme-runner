@@ -166,6 +166,12 @@ func executeRun(inputPath string) error {
 					previewLines++
 				}
 			}
+
+			// Show truncation warning
+			if scanResult.ReadmeFile.Truncated {
+				fmt.Printf("    (Content truncated: was %d bytes)\n",
+					scanResult.ReadmeFile.OriginalSize)
+			}
 		}
 
 		if verbose {
@@ -194,6 +200,41 @@ func executeRun(inputPath string) error {
 	if len(stacks) > 0 {
 		fmt.Printf("  → Primary stack: %s\n", scanResult.PrimaryStack())
 		fmt.Printf("  → All stacks: %s\n", strings.Join(stacks, ", "))
+	}
+
+	// Display ProjectProfile in verbose mode
+	if verbose && scanResult.Profile != nil {
+		profile := scanResult.Profile
+
+		fmt.Printf("  → Project Profile:\n")
+		fmt.Printf("    Root: %s\n", profile.Root)
+		fmt.Printf("    Primary stack: %s\n", profile.Stack)
+
+		if len(profile.Languages) > 0 {
+			fmt.Printf("    Languages: %s\n", strings.Join(profile.Languages, ", "))
+		}
+
+		if len(profile.Tools) > 0 {
+			fmt.Printf("    Tools: %s\n", strings.Join(profile.Tools, ", "))
+		}
+
+		if len(profile.Containers) > 0 {
+			fmt.Printf("    Containers: %s\n", strings.Join(profile.Containers, ", "))
+		}
+
+		if len(profile.Packages) > 0 {
+			fmt.Printf("    Package files: %s\n", strings.Join(profile.Packages, ", "))
+		}
+
+		if len(profile.Signals) > 0 {
+			maxSignals := 5
+			if len(profile.Signals) <= maxSignals {
+				fmt.Printf("    Key signals: %s\n", strings.Join(profile.Signals, ", "))
+			} else {
+				fmt.Printf("    Key signals: %s\n", strings.Join(profile.Signals[:maxSignals], ", "))
+				fmt.Printf("      ... and %d more\n", len(profile.Signals)-maxSignals)
+			}
+		}
 	}
 
 	// Display project files in verbose mode
