@@ -15,7 +15,6 @@ Labels that identify which part of the tool is affected:
 ### Technology Stack
 Labels for technology-specific issues:
 - **golang** - Go language implementation
-- **git-integration** - Git-related functionality
 
 ### Issue Types
 Standard issue classification:
@@ -46,6 +45,7 @@ Based on the 7-phase execution model in the code:
 - **phase:validate** - Phase 4: Validate/Normalize
 - **phase:prerequisites** - Phase 5: Prerequisites
 - **phase:execute** - Phase 6: Execute
+- **phase:cleanup** - Phase 7: Post-run/Cleanup
 
 ## Applying Labels
 
