@@ -57,7 +57,7 @@ To automatically sync these labels with your GitHub repository, you can use tool
 
 1. **github-label-sync** (Node.js):
    ```bash
-   npx github-label-sync --access-token YOUR_TOKEN sony-level/readme-runner .github/labels.yml
+   npx github-label-sync --access-token $GITHUB_TOKEN sony-level/readme-runner .github/labels.yml
    ```
 
 2. **labeler GitHub Action** - Add to `.github/workflows/labels.yml`:
