@@ -16,6 +16,15 @@ var (
 	dryRun        bool
 	verbose       bool
 	yesFlag       bool
+
+	// LLM flags
+	llmProvider string
+	llmEndpoint string
+	llmModel    string
+	llmToken    string
+
+	// Security flags
+	allowSudo bool
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -46,10 +55,27 @@ func Execute() {
 	}
 }
 
+// GetLLMToken returns the LLM token from flag or environment variable
+func GetLLMToken() string {
+	if llmToken != "" {
+		return llmToken
+	}
+	return os.Getenv("RD_LLM_TOKEN")
+}
+
 func init() {
 	// Persistent flags - available to all subcommands
 	rootCmd.PersistentFlags().BoolVar(&keepWorkspace, "keep", false, "Keep workspace directory after execution (.rr-temp/<run-id>)")
 	rootCmd.PersistentFlags().BoolVar(&dryRun, "dry-run", true, "Show plan without executing (default: true)")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose output")
 	rootCmd.PersistentFlags().BoolVarP(&yesFlag, "yes", "y", false, "Auto-accept prompts (except security-critical)")
+
+	// LLM provider flags
+	rootCmd.PersistentFlags().StringVar(&llmProvider, "llm-provider", "copilot", "LLM provider: copilot, http, mock")
+	rootCmd.PersistentFlags().StringVar(&llmEndpoint, "llm-endpoint", "", "HTTP endpoint for custom LLM provider")
+	rootCmd.PersistentFlags().StringVar(&llmModel, "llm-model", "", "Model name for LLM provider")
+	rootCmd.PersistentFlags().StringVar(&llmToken, "llm-token", "", "Authentication token for LLM (or env: GITHUB_TOKEN, GH_TOKEN, RD_LLM_TOKEN)")
+
+	// Security flags
+	rootCmd.PersistentFlags().BoolVar(&allowSudo, "allow-sudo", false, "Allow sudo commands without confirmation prompts")
 }
