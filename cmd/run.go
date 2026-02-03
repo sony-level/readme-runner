@@ -11,6 +11,7 @@ import (
 
 	"github.com/sony-level/readme-runner/internal/fetcher"
 	"github.com/sony-level/readme-runner/internal/scanner"
+	"github.com/sony-level/readme-runner/internal/stacks"
 	"github.com/sony-level/readme-runner/internal/workspace"
 	"github.com/spf13/cobra"
 )
@@ -195,11 +196,11 @@ func executeRun(inputPath string) error {
 		fmt.Printf("  → ⚠ No README found\n")
 	}
 
-	// Display detected stacks
-	stacks := scanResult.DetectedStacks()
-	if len(stacks) > 0 {
+	// Display detected stacks (legacy method)
+	detectedStacks := scanResult.DetectedStacks()
+	if len(detectedStacks) > 0 {
 		fmt.Printf("  → Primary stack: %s\n", scanResult.PrimaryStack())
-		fmt.Printf("  → All stacks: %s\n", strings.Join(stacks, ", "))
+		fmt.Printf("  → All stacks: %s\n", strings.Join(detectedStacks, ", "))
 	}
 
 	// Display ProjectProfile in verbose mode
@@ -236,6 +237,45 @@ func executeRun(inputPath string) error {
 			}
 		}
 	}
+
+	// Run stack detection
+	var stackDetection *stacks.DetectionResult
+	if scanResult.Profile != nil {
+		aggregator := stacks.NewAggregator()
+		detection := aggregator.Detect(scanResult.Profile)
+		stackDetection = &detection
+
+		fmt.Printf("  → Stack Detection:\n")
+		fmt.Printf("    Dominant: %s (confidence: %.2f)\n",
+			detection.Dominant.Name, detection.Dominant.Confidence)
+
+		if detection.IsMixed {
+			fmt.Printf("    Type: Mixed project\n")
+		}
+
+		if verbose {
+			fmt.Printf("    Explanation: %s\n", detection.Explanation)
+
+			if len(detection.Matches) > 1 {
+				fmt.Printf("    All detected stacks:\n")
+				for _, match := range detection.Matches {
+					fmt.Printf("      • %s (confidence: %.2f, priority: %d)\n",
+						match.Name, match.Confidence, match.Priority)
+					for _, reason := range match.Reasons {
+						fmt.Printf("        - %s\n", reason)
+					}
+				}
+			} else if len(detection.Matches) == 1 {
+				fmt.Printf("    Reasons:\n")
+				for _, reason := range detection.Dominant.Reasons {
+					fmt.Printf("      - %s\n", reason)
+				}
+			}
+		}
+	}
+
+	// Suppress unused variable warning
+	_ = stackDetection
 
 	// Display project files in verbose mode
 	if verbose && len(scanResult.ProjectFiles) > 0 {
