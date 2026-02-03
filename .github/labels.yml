@@ -93,11 +93,11 @@
   description: "Related to Phase 3: Plan (AI) functionality"
 
 - name: "phase:validate"
-  color: "BFDADC"
+  color: "E1D5E7"
   description: "Related to Phase 4: Validate/Normalize functionality"
 
 - name: "phase:prerequisites"
-  color: "FEF2C0"
+  color: "FFE4B5"
   description: "Related to Phase 5: Prerequisites functionality"
 
 - name: "phase:execute"
