@@ -98,6 +98,9 @@ func Scan(config *ScanConfig) (*ScanResult, error) {
 
 	result.ScanDuration = time.Since(startTime)
 
+	// Create ProjectProfile with detected signals
+	result.Profile = DetectSignals(result)
+
 	return result, nil
 }
 
