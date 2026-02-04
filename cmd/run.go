@@ -14,6 +14,7 @@ import (
 	"github.com/sony-level/readme-runner/internal/exec"
 	"github.com/sony-level/readme-runner/internal/fetcher"
 	"github.com/sony-level/readme-runner/internal/llm"
+	llmprovider "github.com/sony-level/readme-runner/internal/llm/provider"
 	"github.com/sony-level/readme-runner/internal/plan"
 	"github.com/sony-level/readme-runner/internal/prereq"
 	"github.com/sony-level/readme-runner/internal/scanner"
@@ -331,7 +332,7 @@ func executeRun(inputPath string) error {
 		// Fallback to mock provider on failure
 		fmt.Printf("  → ⚠ LLM failed: %v\n", err)
 		fmt.Printf("  → Falling back to mock provider...\n")
-		mockProvider := llm.NewMockProvider()
+		mockProvider := llmprovider.NewMockProvider()
 		runPlan, err = mockProvider.GeneratePlan(planCtx)
 		if err != nil {
 			return fmt.Errorf("failed to generate plan: %w", err)
@@ -504,18 +505,21 @@ func executeRun(inputPath string) error {
 	return nil
 }
 
-// createLLMProvider creates the appropriate LLM provider based on flags
+// createLLMProvider creates the appropriate LLM provider based on flags.
+// Uses config resolution with precedence: CLI > ENV > config file > defaults.
+// Gracefully falls back to mock provider on any failure.
 func createLLMProvider() (llm.Provider, error) {
-	providerType := llm.ProviderType(llmProvider)
+	// Resolve config with proper precedence
+	config := llm.ResolveProviderConfig(
+		llmProvider,  // CLI flag
+		llmEndpoint,  // CLI flag
+		llmModel,     // CLI flag
+		GetLLMToken(), // CLI flag or env
+		0,            // Use default timeout
+		verbose,
+	)
 
-	config := &llm.ProviderConfig{
-		Type:     providerType,
-		Endpoint: llmEndpoint,
-		Model:    llmModel,
-		Token:    GetLLMToken(),
-		Verbose:  verbose,
-	}
-
+	// NewProvider now returns a FallbackProvider that never fails
 	return llm.NewProvider(config)
 }
 
