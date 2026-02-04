@@ -14,20 +14,20 @@ rd-run https://github.com/user/awesome-project
 
 ---
 
-## ✨ Features
+## Features
 
-- **🧠 README-first Intelligence** — Analyzes README.md to understand how to build and run your project
-- **📁 Smart Fallback** — Uses project files (Dockerfile, package.json, go.mod, etc.) when README is unclear
-- **🔒 Security-first** — Dry-run by default, sudo confirmation, command blocklist
-- **🤖 AI-Powered Plans** — Uses GitHub Copilot API or custom LLM to generate installation plans
-- **🐳 Docker Preferred** — Automatically uses Docker/Compose when available for isolation
-- **📦 Multi-Stack Support** — Node.js, Python, Go, Rust, Docker, and mixed projects
-- **✅ Prerequisite Checking** — Verifies tools are installed before running
-- **🔄 Error Recovery** — Retry, continue, or abort on failures
+- **README-first Intelligence** — Analyzes README.md to understand how to build and run your project
+- **Smart Fallback** — Uses project files (Dockerfile, package.json, go.mod, etc.) when README is unclear
+- **Security-first** — Dry-run by default, sudo confirmation, command blocklist
+- **AI-Powered Plans** — Uses GitHub Copilot API or custom LLM to generate installation plans
+- **Docker Preferred** — Automatically uses Docker/Compose when available for isolation
+- **Multi-Stack Support** — Node.js, Python, Go, Rust, Docker, and mixed projects
+- **Prerequisite Checking** — Verifies tools are installed before running
+- **Error Recovery** — Retry, continue, or abort on failures
 
 ---
 
-## 📥 Installation
+## Installation
 
 ### From Source
 
@@ -58,7 +58,7 @@ export PATH="$PATH:/path/to/readme-runner"
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Basic Usage
 
@@ -101,13 +101,13 @@ Source type: github
   → Plan generated: node project with 2 steps
 
 [4/7] Validate / Normalize
-  → ✓ Plan is valid
+  → Plan is valid
   → Risk summary: Low=1, Medium=1, High=0, Critical=0
 
 [5/7] Prerequisites
-  → ✓ All 2 prerequisites available
-  → ✓ node: v20.10.0
-  → ✓ npm: 10.2.3
+  → All 2 prerequisites available
+  → node: v20.10.0
+  → npm: 10.2.3
 
 [6/7] Execute
 
@@ -145,7 +145,7 @@ Exposed ports:
 
 ---
 
-## 📋 Command Reference
+## Command Reference
 
 ### Syntax
 
@@ -182,7 +182,7 @@ rd-run [command] [path|url] [flags]
 
 ---
 
-## 🔒 Security
+## Security
 
 ### Design Principles
 
@@ -240,7 +240,7 @@ When a command requires sudo, you'll see:
 
 ---
 
-## 🔧 How It Works
+## How It Works
 
 ### Pipeline Overview
 
@@ -301,7 +301,7 @@ The tool calculates a **clarity score** (0.0-1.0) for the README:
 
 ---
 
-## 🤖 LLM Providers
+## LLM Providers
 
 ### GitHub Copilot (Default)
 
@@ -336,7 +336,7 @@ rd-run . --llm-provider mock
 
 ---
 
-## 📄 RunPlan JSON Schema
+## RunPlan JSON Schema
 
 The LLM generates plans in this format:
 
@@ -383,17 +383,17 @@ The LLM generates plans in this format:
 
 | Field | Required | Description |
 |-------|----------|-------------|
-| `version` | ✅ | Schema version (always `"1"`) |
-| `project_type` | ✅ | `docker`, `node`, `python`, `go`, `rust`, `mixed` |
-| `prerequisites` | ✅ | Required tools with reasons |
-| `steps` | ✅ | Ordered execution steps |
-| `env` | ❌ | Environment variables |
-| `ports` | ❌ | Exposed ports |
-| `notes` | ❌ | Additional information |
+| `version` | yes | Schema version (always `"1"`) |
+| `project_type` | yes | `docker`, `node`, `python`, `go`, `rust`, `mixed` |
+| `prerequisites` | yes | Required tools with reasons |
+| `steps` | yes | Ordered execution steps |
+| `env` | no | Environment variables |
+| `ports` | no | Exposed ports |
+| `notes` | no | Additional information |
 
 ---
 
-## 🛠️ Configuration
+## Configuration
 
 ### Environment Variables
 
@@ -415,7 +415,7 @@ The LLM generates plans in this format:
 
 ---
 
-## 📊 Examples
+## Examples
 
 ### Run a Node.js Project
 
@@ -453,7 +453,7 @@ rd-run https://github.com/user/project --keep --verbose
 
 ---
 
-## 🧪 Development
+## Development
 
 ### Build
 
@@ -503,7 +503,7 @@ go test ./... -cover
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
 Contributions are welcome! Please see our contributing guidelines.
 
@@ -515,13 +515,13 @@ Contributions are welcome! Please see our contributing guidelines.
 
 ---
 
-## 📜 License
+## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ---
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - Built with [Cobra](https://github.com/spf13/cobra) for CLI
 - Powered by [GitHub Copilot](https://github.com/features/copilot) for AI planning
@@ -529,5 +529,5 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ---
 
 <p align="center">
-  Made with ❤️ by <a href="https://github.com/sony-level">ソニーレベル</a>
+  Made with care by <a href="https://github.com/sony-level">ソニーレベル</a>
 </p>
