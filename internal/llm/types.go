@@ -19,10 +19,32 @@ const (
 type ProviderType string
 
 const (
-	ProviderCopilot ProviderType = "copilot"
-	ProviderHTTP    ProviderType = "http"
-	ProviderMock    ProviderType = "mock"
+	// Active providers
+	ProviderOpenAI    ProviderType = "openai"
+	ProviderAnthropic ProviderType = "anthropic"
+	ProviderMistral   ProviderType = "mistral"
+	ProviderOllama    ProviderType = "ollama"
+	ProviderHTTP      ProviderType = "http"
+	ProviderMock      ProviderType = "mock"
+
+	// Deprecated providers (will fallback to mock)
+	ProviderCopilot ProviderType = "copilot" // DEPRECATED: Use openai, anthropic, or mock instead
 )
+
+// SupportedProviders lists all active provider types
+var SupportedProviders = []ProviderType{
+	ProviderAnthropic,
+	ProviderOpenAI,
+	ProviderMistral,
+	ProviderOllama,
+	ProviderHTTP,
+	ProviderMock,
+}
+
+// DeprecatedProviders lists providers that are no longer supported
+var DeprecatedProviders = []ProviderType{
+	ProviderCopilot,
+}
 
 // ValidPlanVersion is the current RunPlan schema version
 const ValidPlanVersion = "1"

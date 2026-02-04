@@ -16,21 +16,23 @@ const (
 
 // Provider errors
 var (
-	ErrUnknownProvider   = errors.New("unknown provider type")
-	ErrMissingEndpoint   = errors.New("HTTP provider requires endpoint")
-	ErrMissingToken      = errors.New("HTTP provider requires token")
-	ErrCopilotNotFound   = errors.New("GitHub Copilot CLI not found (gh copilot)")
-	ErrInvalidJSON       = errors.New("LLM returned invalid JSON")
-	ErrTimeout           = errors.New("LLM request timed out")
-	ErrEmptyResponse     = errors.New("LLM returned empty response")
+	ErrUnknownProvider = errors.New("unknown provider type")
+	ErrMissingEndpoint = errors.New("HTTP provider requires endpoint")
+	ErrMissingToken    = errors.New("provider requires API token")
+	ErrInvalidJSON     = errors.New("LLM returned invalid JSON")
+	ErrTimeout         = errors.New("LLM request timed out")
+	ErrEmptyResponse   = errors.New("LLM returned empty response")
+
+	// Deprecated
+	ErrCopilotNotFound = errors.New("GitHub Copilot is deprecated - use anthropic, openai, or mock")
 )
 
 // ProviderConfig holds configuration for LLM providers
 type ProviderConfig struct {
-	Type     ProviderType  // Provider type: copilot, http, mock
-	Endpoint string        // HTTP endpoint URL (for HTTP provider)
+	Type     ProviderType  // Provider type: anthropic, openai, mistral, ollama, http, mock
+	Endpoint string        // HTTP endpoint URL (for HTTP/Ollama provider)
 	Model    string        // Model name (optional)
-	Token    string        // Authentication token (for HTTP provider)
+	Token    string        // Authentication token
 	Timeout  time.Duration // Request timeout
 	Verbose  bool          // Enable verbose output
 }
@@ -42,11 +44,12 @@ func (c *ProviderConfig) Validate() error {
 		if c.Endpoint == "" {
 			return ErrMissingEndpoint
 		}
-		if c.Token == "" {
-			return ErrMissingToken
-		}
-	case ProviderCopilot, ProviderMock:
-		// No additional validation required
+	case ProviderOpenAI, ProviderAnthropic, ProviderMistral:
+		// Token validation happens in provider constructor
+	case ProviderOllama, ProviderMock:
+		// No validation required
+	case ProviderCopilot:
+		// Deprecated but still valid (will fallback to mock)
 	default:
 		return ErrUnknownProvider
 	}
@@ -64,30 +67,18 @@ func (c *ProviderConfig) WithDefaults() *ProviderConfig {
 	return c
 }
 
-// NewProvider creates an LLM provider based on configuration
+// NewProvider creates an LLM provider based on configuration.
+// Uses the registry with automatic fallback to mock on failure.
 func NewProvider(config *ProviderConfig) (Provider, error) {
-	if config == nil {
-		config = &ProviderConfig{Type: ProviderMock}
-	}
+	DefaultRegistry.SetVerbose(config != nil && config.Verbose)
+	return DefaultRegistry.Get(config), nil
+}
 
-	// Apply defaults
-	config = config.WithDefaults()
-
-	// Validate config
-	if err := config.Validate(); err != nil {
-		return nil, err
-	}
-
-	switch config.Type {
-	case ProviderCopilot:
-		return NewCopilotProvider(config), nil
-	case ProviderHTTP:
-		return NewHTTPProvider(config), nil
-	case ProviderMock:
-		return NewMockProvider(), nil
-	default:
-		return nil, ErrUnknownProvider
-	}
+// NewProviderWithFallback creates a provider that gracefully falls back to mock.
+// This is the recommended way to create providers for production use.
+func NewProviderWithFallback(config *ProviderConfig) Provider {
+	DefaultRegistry.SetVerbose(config != nil && config.Verbose)
+	return DefaultRegistry.Get(config)
 }
 
 // MaskToken returns a masked version of the token for logging

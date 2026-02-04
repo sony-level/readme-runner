@@ -7,14 +7,15 @@ import (
 	"testing"
 
 	"github.com/sony-level/readme-runner/internal/llm"
+	"github.com/sony-level/readme-runner/internal/llm/provider"
 	"github.com/sony-level/readme-runner/internal/scanner"
 )
 
 func TestMockProvider(t *testing.T) {
-	provider := llm.NewMockProvider()
+	prov := provider.NewMockProvider()
 
-	if provider.Name() != "mock" {
-		t.Errorf("Expected name 'mock', got '%s'", provider.Name())
+	if prov.Name() != "mock" {
+		t.Errorf("Expected name 'mock', got '%s'", prov.Name())
 	}
 
 	// Test with Go profile
@@ -27,7 +28,7 @@ func TestMockProvider(t *testing.T) {
 		},
 	}
 
-	plan, err := provider.GeneratePlan(ctx)
+	plan, err := prov.GeneratePlan(ctx)
 	if err != nil {
 		t.Fatalf("GeneratePlan failed: %v", err)
 	}
@@ -46,7 +47,7 @@ func TestMockProvider(t *testing.T) {
 }
 
 func TestMockProviderNodeStack(t *testing.T) {
-	provider := llm.NewMockProvider()
+	prov := provider.NewMockProvider()
 
 	ctx := &llm.PlanContext{
 		Profile: &scanner.ProjectProfile{
@@ -57,7 +58,7 @@ func TestMockProviderNodeStack(t *testing.T) {
 		},
 	}
 
-	plan, err := provider.GeneratePlan(ctx)
+	plan, err := prov.GeneratePlan(ctx)
 	if err != nil {
 		t.Fatalf("GeneratePlan failed: %v", err)
 	}
@@ -80,7 +81,7 @@ func TestMockProviderNodeStack(t *testing.T) {
 }
 
 func TestMockProviderDockerStack(t *testing.T) {
-	provider := llm.NewMockProvider()
+	prov := provider.NewMockProvider()
 
 	ctx := &llm.PlanContext{
 		Profile: &scanner.ProjectProfile{
@@ -89,7 +90,7 @@ func TestMockProviderDockerStack(t *testing.T) {
 		},
 	}
 
-	plan, err := provider.GeneratePlan(ctx)
+	plan, err := prov.GeneratePlan(ctx)
 	if err != nil {
 		t.Fatalf("GeneratePlan failed: %v", err)
 	}
@@ -227,7 +228,7 @@ func TestProviderConfig(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:    "copilot provider",
+			name:    "copilot provider (deprecated but valid)",
 			config:  &llm.ProviderConfig{Type: llm.ProviderCopilot},
 			wantErr: nil,
 		},
@@ -240,20 +241,35 @@ func TestProviderConfig(t *testing.T) {
 			wantErr: llm.ErrMissingEndpoint,
 		},
 		{
-			name: "http provider without token",
+			name: "http provider with endpoint (token optional)",
 			config: &llm.ProviderConfig{
 				Type:     llm.ProviderHTTP,
 				Endpoint: "http://localhost:8080",
 			},
-			wantErr: llm.ErrMissingToken,
+			wantErr: nil, // Token is now optional for HTTP provider
 		},
 		{
-			name: "valid http provider",
+			name: "valid http provider with token",
 			config: &llm.ProviderConfig{
 				Type:     llm.ProviderHTTP,
 				Endpoint: "http://localhost:8080",
 				Token:    "test-token",
 			},
+			wantErr: nil,
+		},
+		{
+			name:    "openai provider (validates in constructor)",
+			config:  &llm.ProviderConfig{Type: llm.ProviderOpenAI},
+			wantErr: nil,
+		},
+		{
+			name:    "anthropic provider (validates in constructor)",
+			config:  &llm.ProviderConfig{Type: llm.ProviderAnthropic},
+			wantErr: nil,
+		},
+		{
+			name:    "ollama provider (no token needed)",
+			config:  &llm.ProviderConfig{Type: llm.ProviderOllama},
 			wantErr: nil,
 		},
 	}
