@@ -5,11 +5,11 @@
 [![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat&logo=go)](https://go.dev/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-**readme-runner** (`rd-run`) is a fast, secure CLI tool that automatically installs and runs any software project by intelligently analyzing its README and project files.
+**readme-runner** (`rdr`) is a fast, secure CLI tool that automatically installs and runs any software project by intelligently analyzing its README and project files.
 
 ```bash
 # Clone and run any project with one command
-rd-run https://github.com/user/awesome-project
+rdr https://github.com/user/awesome-project
 ```
 
 ---
@@ -46,7 +46,7 @@ go install .
 ### Binary Location
 
 After building, binaries are available at:
-- `./rd-run` — Main binary
+- `./rdr` — Main binary
 - `./readme-run` — Alias
 
 Add to your PATH for global access:
@@ -64,16 +64,16 @@ export PATH="$PATH:/path/to/readme-runner"
 
 ```bash
 # Analyze current directory (dry-run by default)
-rd-run .
+rdr .
 
 # Analyze a GitHub repository
-rd-run https://github.com/expressjs/express
+rdr https://github.com/expressjs/express
 
 # Actually execute the plan
-rd-run . --dry-run=false
+rdr . --dry-run=false
 
 # Execute with auto-confirm (except sudo)
-rd-run . --dry-run=false --yes
+rdr . --dry-run=false --yes
 ```
 
 ### Example Output
@@ -140,7 +140,7 @@ Exposed ports:
   → Workspace will be cleaned up
 
   To execute this plan, run again without --dry-run:
-    rd-run https://github.com/user/project --dry-run=false
+    rdr https://github.com/user/project --dry-run=false
 ```
 
 ---
@@ -150,7 +150,7 @@ Exposed ports:
 ### Syntax
 
 ```bash
-rd-run [command] [path|url] [flags]
+rdr [command] [path|url] [flags]
 ```
 
 ### Commands
@@ -319,7 +319,7 @@ Uses Claude API for high-quality plan generation:
 export ANTHROPIC_API_KEY="sk-ant-xxxxxxxxxxxx"
 
 # Or specify provider explicitly
-rd-run . --llm-provider anthropic
+rdr . --llm-provider anthropic
 ```
 
 ### OpenAI
@@ -328,7 +328,7 @@ Uses OpenAI GPT models:
 
 ```bash
 export OPENAI_API_KEY="sk-xxxxxxxxxxxx"
-rd-run . --llm-provider openai
+rdr . --llm-provider openai
 ```
 
 ### Mistral
@@ -337,7 +337,7 @@ Uses Mistral AI models:
 
 ```bash
 export MISTRAL_API_KEY="xxxxxxxxxxxx"
-rd-run . --llm-provider mistral
+rdr . --llm-provider mistral
 ```
 
 ### Ollama (Local, No API Key)
@@ -349,7 +349,7 @@ Uses local Ollama instance - no API key required:
 ollama serve
 
 # Use Ollama provider
-rd-run . --llm-provider ollama --llm-model llama3.2
+rdr . --llm-provider ollama --llm-model llama3.2
 ```
 
 ### Custom HTTP Provider
@@ -357,7 +357,7 @@ rd-run . --llm-provider ollama --llm-model llama3.2
 Connect to any OpenAI-compatible API:
 
 ```bash
-rd-run . --llm-provider http \
+rdr . --llm-provider http \
          --llm-endpoint "http://localhost:8080/v1/chat/completions" \
          --llm-token "your-token" \
          --llm-model "custom-model"
@@ -368,7 +368,7 @@ rd-run . --llm-provider http \
 Works completely offline with smart stack-based plans:
 
 ```bash
-rd-run . --llm-provider mock
+rdr . --llm-provider mock
 ```
 
 The mock provider generates context-aware plans based on detected project files (package.json, Dockerfile, go.mod, etc.) without requiring any network access.
@@ -480,19 +480,19 @@ model: claude-sonnet-4-20250514
 ### Run a Node.js Project
 
 ```bash
-rd-run https://github.com/expressjs/express --dry-run=false --yes
+rdr https://github.com/expressjs/express --dry-run=false --yes
 ```
 
 ### Run a Python Project with Poetry
 
 ```bash
-rd-run https://github.com/python-poetry/poetry --verbose
+rdr https://github.com/python-poetry/poetry --verbose
 ```
 
 ### Run a Docker Compose Project
 
 ```bash
-rd-run . --dry-run=false
+rdr . --dry-run=false
 # Docker Compose projects auto-detect and use: docker compose up
 ```
 
@@ -500,10 +500,10 @@ rd-run . --dry-run=false
 
 ```bash
 # Native Ollama support
-rd-run . --llm-provider ollama --llm-model codellama
+rdr . --llm-provider ollama --llm-model codellama
 
 # Or via HTTP provider
-rd-run . --llm-provider http \
+rdr . --llm-provider http \
          --llm-endpoint "http://localhost:11434/api/chat" \
          --llm-model "codellama"
 ```
@@ -512,13 +512,13 @@ rd-run . --llm-provider http \
 
 ```bash
 # Use mock provider for offline operation
-rd-run . --llm-provider mock
+rdr . --llm-provider mock
 ```
 
 ### Keep Workspace for Debugging
 
 ```bash
-rd-run https://github.com/user/project --keep --verbose
+rdr https://github.com/user/project --keep --verbose
 # Workspace preserved at .rr-temp/rr-xxxxx/
 ```
 
