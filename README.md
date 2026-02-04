@@ -19,7 +19,7 @@ rd-run https://github.com/user/awesome-project
 - **README-first Intelligence** — Analyzes README.md to understand how to build and run your project
 - **Smart Fallback** — Uses project files (Dockerfile, package.json, go.mod, etc.) when README is unclear
 - **Security-first** — Dry-run by default, sudo confirmation, command blocklist
-- **AI-Powered Plans** — Uses GitHub Copilot API or custom LLM to generate installation plans
+- **AI-Powered Plans** — Uses Anthropic, OpenAI, Mistral, Ollama, or works fully offline with smart mock plans
 - **Docker Preferred** — Automatically uses Docker/Compose when available for isolation
 - **Multi-Stack Support** — Node.js, Python, Go, Rust, Docker, and mixed projects
 - **Prerequisite Checking** — Verifies tools are installed before running
@@ -97,7 +97,7 @@ Source type: github
 [3/7] Plan (AI)
   → README clarity score: 0.80
   → Using README as primary source
-  → Using LLM provider: copilot
+  → Using LLM provider: anthropic
   → Plan generated: node project with 2 steps
 
 [4/7] Validate / Normalize
@@ -175,10 +175,17 @@ rd-run [command] [path|url] [flags]
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--llm-provider` | `copilot` | LLM provider: `copilot`, `http`, `mock` |
-| `--llm-endpoint` | — | HTTP endpoint for custom LLM |
+| `--llm-provider` | auto | LLM provider: `anthropic`, `openai`, `mistral`, `ollama`, `http`, `mock` |
+| `--llm-endpoint` | — | HTTP endpoint for custom LLM or Ollama |
 | `--llm-model` | — | Model name for LLM provider |
-| `--llm-token` | — | Auth token (prefer `GITHUB_TOKEN` env) |
+| `--llm-token` | — | Auth token (or use provider-specific env vars) |
+
+**Provider auto-selection**: If no provider is specified, the tool automatically selects the best available:
+1. `anthropic` if `ANTHROPIC_API_KEY` is set
+2. `openai` if `OPENAI_API_KEY` is set
+3. `mistral` if `MISTRAL_API_KEY` is set
+4. `ollama` if Ollama is running locally
+5. `mock` (offline mode) otherwise
 
 ---
 
@@ -303,16 +310,46 @@ The tool calculates a **clarity score** (0.0-1.0) for the README:
 
 ## LLM Providers
 
-### GitHub Copilot (Default)
+### Anthropic (Recommended)
 
-Uses GitHub Copilot API with your GitHub token:
+Uses Claude API for high-quality plan generation:
 
 ```bash
-# Set token via environment variable (recommended)
-export GITHUB_TOKEN="ghp_xxxxxxxxxxxx"
+# Set API key via environment variable (recommended)
+export ANTHROPIC_API_KEY="sk-ant-xxxxxxxxxxxx"
 
-# Or via flag
-rd-run . --llm-token "ghp_xxxxxxxxxxxx"
+# Or specify provider explicitly
+rd-run . --llm-provider anthropic
+```
+
+### OpenAI
+
+Uses OpenAI GPT models:
+
+```bash
+export OPENAI_API_KEY="sk-xxxxxxxxxxxx"
+rd-run . --llm-provider openai
+```
+
+### Mistral
+
+Uses Mistral AI models:
+
+```bash
+export MISTRAL_API_KEY="xxxxxxxxxxxx"
+rd-run . --llm-provider mistral
+```
+
+### Ollama (Local, No API Key)
+
+Uses local Ollama instance - no API key required:
+
+```bash
+# Make sure Ollama is running
+ollama serve
+
+# Use Ollama provider
+rd-run . --llm-provider ollama --llm-model llama3.2
 ```
 
 ### Custom HTTP Provider
@@ -321,18 +358,24 @@ Connect to any OpenAI-compatible API:
 
 ```bash
 rd-run . --llm-provider http \
-         --llm-endpoint "http://localhost:11434/v1/chat/completions" \
+         --llm-endpoint "http://localhost:8080/v1/chat/completions" \
          --llm-token "your-token" \
-         --llm-model "llama3"
+         --llm-model "custom-model"
 ```
 
-### Mock Provider (Testing)
+### Mock Provider (Offline Mode)
 
-Returns predefined plans based on detected stack:
+Works completely offline with smart stack-based plans:
 
 ```bash
 rd-run . --llm-provider mock
 ```
+
+The mock provider generates context-aware plans based on detected project files (package.json, Dockerfile, go.mod, etc.) without requiring any network access.
+
+### Migration from Copilot
+
+> **Note**: The `copilot` provider has been deprecated. GitHub Copilot API is not available for custom tools. If you were using `--llm-provider copilot`, please migrate to one of the supported providers above. The tool will automatically fall back to mock mode if copilot is specified.
 
 ---
 
@@ -399,9 +442,26 @@ The LLM generates plans in this format:
 
 | Variable | Description |
 |----------|-------------|
-| `GITHUB_TOKEN` | GitHub token for Copilot API |
-| `GH_TOKEN` | Alternative GitHub token variable |
-| `RD_LLM_TOKEN` | Custom LLM token |
+| `ANTHROPIC_API_KEY` | Anthropic API key (Claude models) |
+| `OPENAI_API_KEY` | OpenAI API key |
+| `MISTRAL_API_KEY` | Mistral AI API key |
+| `OLLAMA_HOST` | Ollama host address (default: localhost:11434) |
+| `RD_LLM_TOKEN` | Generic LLM token (fallback for any provider) |
+| `RD_LLM_PROVIDER` | Default provider via environment |
+| `RD_LLM_MODEL` | Default model via environment |
+| `RD_LLM_ENDPOINT` | Default endpoint via environment |
+
+### Configuration File
+
+You can also configure providers via a config file at `~/.config/readme-runner/config.yaml`:
+
+```yaml
+provider: anthropic
+model: claude-sonnet-4-20250514
+# token: sk-ant-... # Or use environment variable
+```
+
+**Precedence**: CLI flags > Environment variables > Config file > Defaults
 
 ### Workspace Structure
 
@@ -439,9 +499,20 @@ rd-run . --dry-run=false
 ### Use Local LLM (Ollama)
 
 ```bash
+# Native Ollama support
+rd-run . --llm-provider ollama --llm-model codellama
+
+# Or via HTTP provider
 rd-run . --llm-provider http \
          --llm-endpoint "http://localhost:11434/api/chat" \
          --llm-model "codellama"
+```
+
+### Run Completely Offline
+
+```bash
+# Use mock provider for offline operation
+rd-run . --llm-provider mock
 ```
 
 ### Keep Workspace for Debugging
@@ -477,7 +548,7 @@ readme-runner/
 │   ├── fetcher/           # Git clone / local copy
 │   ├── scanner/           # File detection + README parsing
 │   ├── stacks/            # Stack detectors (docker/node/etc.)
-│   ├── llm/               # LLM providers (copilot/http/mock)
+│   ├── llm/               # LLM providers (anthropic/openai/mistral/ollama/http/mock)
 │   ├── plan/              # Plan validation + normalization
 │   ├── prereq/            # Prerequisite checking
 │   ├── exec/              # Step execution
