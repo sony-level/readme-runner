@@ -24,31 +24,26 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// runCmd represents the run command
+// runCmd represents the run subcommand (alias for backwards compatibility)
+// The main functionality is now in rootCmd, so 'rdr .' and 'rdr run .' are equivalent.
 var runCmd = &cobra.Command{
-	Use:   "run [path|url]",
-	Short: "Run installation from README",
+	Use:    "run [path|url]",
+	Short:  "Run installation from README (alias, same as 'rdr [path|url]')",
+	Hidden: true, // Hide from help since root command does the same thing
 	Long: `Analyze a repository's README and key files, generate an installation
 plan, and execute it (or simulate with --dry-run).
 
-Arguments:
-  path    Local directory path to analyze
-  url     GitHub/GitLab repository URL to clone and analyze
+Note: This is an alias for backwards compatibility. You can use 'rdr [path|url]' directly.
 
 Examples:
-  rd-run run .
-  rd-run run https://github.com/user/repo
-  rd-run run https://gitlab.com/user/repo
-  rd-run run . --dry-run --verbose
-  rd-run run . --keep`,
+  rdr run .                              # Same as: rdr .
+  rdr run https://github.com/user/repo   # Same as: rdr https://github.com/user/repo`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		// Determine input path (default to current directory)
 		inputPath := "."
 		if len(args) > 0 {
 			inputPath = args[0]
 		}
-
 		return executeRun(inputPath)
 	},
 }
@@ -293,10 +288,10 @@ func executeRun(inputPath string) error {
 		}
 	}
 
-	// Phase 3: Plan (AI)
+	// Phase 3: Plan (AI) - README-first approach
 	fmt.Println("\n[3/7] Plan (AI)")
 
-	// Build LLM context
+	// Build LLM context with README-first approach
 	clarityScore := llm.CalculateClarityScore(scanResult.ReadmeFile)
 	useReadme := llm.ShouldUseReadme(scanResult.ReadmeFile)
 
@@ -309,34 +304,60 @@ func executeRun(inputPath string) error {
 		Verbose:      verbose,
 	}
 
-	if verbose {
-		fmt.Printf("  → README clarity score: %.2f\n", clarityScore)
-		if useReadme {
-			fmt.Printf("  → Using README as primary source\n")
+	// Display README-first analysis
+	fmt.Printf("  → README clarity score: %.2f (threshold: %.2f)\n", clarityScore, llm.ClarityThreshold)
+	if useReadme {
+		fmt.Printf("  → Strategy: README-first (clear instructions detected)\n")
+	} else {
+		if scanResult.ReadmeFile == nil {
+			fmt.Printf("  → Strategy: Project-file signals (no README found)\n")
 		} else {
-			fmt.Printf("  → Using project files as primary source (README unclear or missing)\n")
+			fmt.Printf("  → Strategy: Project-file signals (README unclear, score below threshold)\n")
 		}
 	}
 
-	// Create LLM provider
+	if verbose && scanResult.ReadmeFile != nil {
+		// Show README analysis breakdown
+		fmt.Printf("    README analysis:\n")
+		if scanResult.ReadmeFile.HasInstall {
+			fmt.Printf("      ✓ Installation section found\n")
+		}
+		if scanResult.ReadmeFile.HasUsage {
+			fmt.Printf("      ✓ Usage section found\n")
+		}
+		if scanResult.ReadmeFile.HasBuild {
+			fmt.Printf("      ✓ Build section found\n")
+		}
+		if scanResult.ReadmeFile.HasQuickStart {
+			fmt.Printf("      ✓ Quick start section found\n")
+		}
+		fmt.Printf("      Code blocks: %d, Shell commands: %d\n",
+			scanResult.ReadmeFile.CodeBlocks, scanResult.ReadmeFile.ShellCommands)
+	}
+
+	// Create LLM provider (auto-selects based on available API keys)
 	provider, err := createLLMProvider()
 	if err != nil {
 		return fmt.Errorf("failed to create LLM provider: %w", err)
 	}
-	fmt.Printf("  → Using LLM provider: %s\n", provider.Name())
+	fmt.Printf("  → LLM provider: %s\n", provider.Name())
 
-	// Generate plan
+	// Generate plan using README-first approach
 	fmt.Printf("  → Generating installation plan...\n")
 	runPlan, err := provider.GeneratePlan(planCtx)
 	if err != nil {
-		// Fallback to mock provider on failure
-		fmt.Printf("  → ⚠ LLM failed: %v\n", err)
-		fmt.Printf("  → Falling back to mock provider...\n")
+		// Graceful fallback to mock provider on any failure (network, auth, JSON parse, etc.)
+		fmt.Printf("  → ⚠ LLM provider failed: %v\n", err)
+		fmt.Printf("  → Falling back to mock provider (using project file signals)...\n")
+		if verbose {
+			fmt.Printf("    Fallback reason: provider error, continuing with offline analysis\n")
+		}
 		mockProvider := llmprovider.NewMockProvider()
 		runPlan, err = mockProvider.GeneratePlan(planCtx)
 		if err != nil {
 			return fmt.Errorf("failed to generate plan: %w", err)
 		}
+		fmt.Printf("  → Plan generated using mock provider (offline mode)\n")
 	}
 
 	fmt.Printf("  → Plan generated: %s project with %d steps\n",
@@ -439,6 +460,10 @@ func executeRun(inputPath string) error {
 		// Display dry-run output
 		fmt.Print(exec.DryRunDisplay(runPlan, ws.RepoPath()))
 	} else {
+		// Track step progress for display
+		totalSteps := len(runPlan.Steps)
+		currentStep := 0
+
 		// Create executor
 		runnerConfig := &exec.RunnerConfig{
 			Mode:        exec.ModeExecute,
@@ -448,8 +473,20 @@ func executeRun(inputPath string) error {
 			Verbose:     verbose,
 			StepTimeout: exec.DefaultStepTimeout,
 			OnStepStart: func(step *llm.Step) {
-				fmt.Printf("\n  → Executing: %s\n", step.ID)
-				fmt.Printf("    Command: %s\n", step.Cmd)
+				currentStep++
+				// Show step number and description/ID
+				stepDesc := step.ID
+				if step.Description != "" {
+					stepDesc = step.Description
+				}
+				fmt.Printf("\n  → Step %d/%d: %s\n", currentStep, totalSteps, stepDesc)
+				fmt.Printf("    $ %s\n", step.Cmd)
+				if step.Cwd != "" && step.Cwd != "." {
+					fmt.Printf("    (in %s)\n", step.Cwd)
+				}
+				if step.RequiresSudo {
+					fmt.Printf("    ⚠ Requires sudo\n")
+				}
 			},
 			OnStepComplete: func(step *llm.Step, result *exec.StepResult) {
 				fmt.Printf("    %s\n", exec.FormatStepResult(result))
@@ -499,25 +536,36 @@ func executeRun(inputPath string) error {
 
 	if dryRun {
 		fmt.Println("\n  To execute this plan, run again without --dry-run:")
-		fmt.Printf("    rd-run %s --dry-run=false\n", inputPath)
+		fmt.Printf("    rdr %s --dry-run=false\n", inputPath)
 	}
 
 	return nil
 }
 
 // createLLMProvider creates the appropriate LLM provider based on flags.
-// Uses config resolution with precedence: CLI > ENV > config file > defaults.
+// Uses config resolution with precedence: CLI > ENV > config file > defaults (auto-select).
+// Auto-selection order: anthropic > openai > mistral > ollama > mock
 // Gracefully falls back to mock provider on any failure.
 func createLLMProvider() (llm.Provider, error) {
-	// Resolve config with proper precedence
-	config := llm.ResolveProviderConfig(
-		llmProvider,  // CLI flag
-		llmEndpoint,  // CLI flag
-		llmModel,     // CLI flag
+	return createLLMProviderWithInfo()
+}
+
+// createLLMProviderWithInfo creates provider and logs selection details in verbose mode
+func createLLMProviderWithInfo() (llm.Provider, error) {
+	// Resolve config with proper precedence and get selection info
+	config, selectionInfo := llm.ResolveProviderConfigWithInfo(
+		llmProvider,   // CLI flag
+		llmEndpoint,   // CLI flag
+		llmModel,      // CLI flag
 		GetLLMToken(), // CLI flag or env
-		0,            // Use default timeout
+		0,             // Use default timeout
 		verbose,
 	)
+
+	// Log provider selection in verbose mode
+	if verbose {
+		fmt.Printf("  → Provider selection: %s\n", llm.GetProviderSelectionDescription(selectionInfo))
+	}
 
 	// NewProvider now returns a FallbackProvider that never fails
 	return llm.NewProvider(config)
@@ -613,11 +661,12 @@ func createFailurePrompt() exec.FailurePromptFunc {
 
 		fmt.Println()
 		fmt.Println("  Choose an option:")
-		fmt.Println("    1) Continue to next step")
-		fmt.Println("    2) Retry this step")
-		fmt.Println("    3) Abort entire operation")
+		fmt.Println("    1) Retry this step")
+		fmt.Println("    2) Skip this step (mark as skipped)")
+		fmt.Println("    3) Continue to next step (keep failure)")
+		fmt.Println("    4) Abort entire operation")
 		fmt.Println()
-		fmt.Print("  Enter choice [1-3]: ")
+		fmt.Print("  Enter choice [1-4]: ")
 
 		input, err := reader.ReadString('\n')
 		if err != nil {
@@ -627,11 +676,13 @@ func createFailurePrompt() exec.FailurePromptFunc {
 		input = strings.TrimSpace(input)
 
 		switch input {
-		case "1", "c", "continue":
-			return exec.FailureChoiceContinue
-		case "2", "r", "retry":
+		case "1", "r", "retry":
 			return exec.FailureChoiceRetry
-		case "3", "a", "abort", "q", "quit":
+		case "2", "s", "skip":
+			return exec.FailureChoiceSkip
+		case "3", "c", "continue":
+			return exec.FailureChoiceContinue
+		case "4", "a", "abort", "q", "quit":
 			return exec.FailureChoiceAbort
 		default:
 			return exec.FailureChoiceAbort
