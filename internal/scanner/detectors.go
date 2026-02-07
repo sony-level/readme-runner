@@ -69,6 +69,21 @@ func detectFileType(name, nameLower, fullPath string) string {
 		return FileTypePipfile
 	case "poetry.lock":
 		return FileTypePoetryLock
+	// Python entry points (only detect at root level, fullPath check)
+	case "main.py":
+		return FileTypePyMain
+	case "app.py":
+		return FileTypePyApp
+	case "run.py":
+		return FileTypePyRun
+	case "manage.py":
+		return FileTypePyManage
+	case "wsgi.py":
+		return FileTypePyWsgi
+	case "asgi.py":
+		return FileTypePyAsgi
+	case "__main__.py":
+		return FileTypePyDunder
 	}
 
 	// Go files

@@ -100,23 +100,45 @@ func loadConfigFromPath(path string) (*Config, error) {
 	return &cfg, nil
 }
 
+// ProviderSelectionInfo contains details about how a provider was selected
+type ProviderSelectionInfo struct {
+	Provider     ProviderType
+	Source       string // "cli", "env", "config", "auto"
+	AutoReason   string // Reason for auto-selection (if applicable)
+	WasFallback  bool   // True if fell back from another provider
+	FallbackFrom string // Original provider if fallback occurred
+}
+
 // ResolveProviderConfig creates a ProviderConfig with proper precedence:
-// CLI flags > Environment variables > Config file > Defaults
+// CLI flags > Environment variables > Config file > Defaults (auto-select)
 func ResolveProviderConfig(cliProvider, cliEndpoint, cliModel, cliToken string, cliTimeout time.Duration, verbose bool) *ProviderConfig {
+	config, _ := ResolveProviderConfigWithInfo(cliProvider, cliEndpoint, cliModel, cliToken, cliTimeout, verbose)
+	return config
+}
+
+// ResolveProviderConfigWithInfo creates a ProviderConfig with selection info
+func ResolveProviderConfigWithInfo(cliProvider, cliEndpoint, cliModel, cliToken string, cliTimeout time.Duration, verbose bool) (*ProviderConfig, *ProviderSelectionInfo) {
 	// Load config file (optional)
 	fileCfg, _ := LoadConfig()
 
-	// Start with defaults
+	// Start with empty type (will auto-select if not set)
 	config := &ProviderConfig{
-		Type:    ProviderMock,
+		Type:    "",
 		Timeout: DefaultTimeout,
 		Verbose: verbose,
 	}
 
-	// Apply config file values
+	selectionInfo := &ProviderSelectionInfo{}
+
+	// Track if provider was explicitly set
+	providerExplicitlySet := false
+	fileHasProvider := false
+
+	// Apply config file values (lowest priority for provider)
 	if fileCfg != nil {
 		if fileCfg.Provider != "" {
 			config.Type = ProviderType(fileCfg.Provider)
+			fileHasProvider = true
 		}
 		if fileCfg.Model != "" {
 			config.Model = fileCfg.Model
@@ -134,9 +156,11 @@ func ResolveProviderConfig(cliProvider, cliEndpoint, cliModel, cliToken string, 
 		}
 	}
 
-	// Apply environment variables
+	// Apply environment variables (medium priority)
 	if envProvider := os.Getenv("RD_LLM_PROVIDER"); envProvider != "" {
 		config.Type = ProviderType(envProvider)
+		providerExplicitlySet = true
+		selectionInfo.Source = "env"
 	}
 	if envModel := os.Getenv("RD_LLM_MODEL"); envModel != "" {
 		config.Model = envModel
@@ -156,6 +180,8 @@ func ResolveProviderConfig(cliProvider, cliEndpoint, cliModel, cliToken string, 
 	// Apply CLI flags (highest priority)
 	if cliProvider != "" {
 		config.Type = ProviderType(cliProvider)
+		providerExplicitlySet = true
+		selectionInfo.Source = "cli"
 	}
 	if cliModel != "" {
 		config.Model = cliModel
@@ -170,39 +196,76 @@ func ResolveProviderConfig(cliProvider, cliEndpoint, cliModel, cliToken string, 
 		config.Timeout = cliTimeout
 	}
 
-	// Auto-select provider if still mock and no explicit selection
-	if config.Type == ProviderMock && cliProvider == "" && os.Getenv("RD_LLM_PROVIDER") == "" {
-		config.Type = autoSelectProvider(config)
+	// Track config file source if it was used and not overridden
+	if fileHasProvider && !providerExplicitlySet {
+		providerExplicitlySet = true
+		selectionInfo.Source = "config"
 	}
 
-	return config.WithDefaults()
+	// Auto-select provider if not explicitly set
+	if !providerExplicitlySet || config.Type == "" {
+		selectedProvider, reason := autoSelectProviderWithReason(config, verbose)
+		config.Type = selectedProvider
+		selectionInfo.Source = "auto"
+		selectionInfo.AutoReason = reason
+	}
+
+	selectionInfo.Provider = config.Type
+
+	return config.WithDefaults(), selectionInfo
 }
 
 // autoSelectProvider chooses the best available provider
 // Priority: anthropic > openai > mistral > ollama > mock
 func autoSelectProvider(config *ProviderConfig) ProviderType {
-	// Check for Anthropic key
+	provider, _ := autoSelectProviderWithReason(config, false)
+	return provider
+}
+
+// autoSelectProviderWithReason chooses the best available provider and returns the reason
+// Priority: anthropic > openai > mistral > ollama > mock
+func autoSelectProviderWithReason(config *ProviderConfig, verbose bool) (ProviderType, string) {
+	// Check for Anthropic key (preferred - best for structured JSON output)
 	if os.Getenv("ANTHROPIC_API_KEY") != "" {
-		return ProviderAnthropic
+		return ProviderAnthropic, "ANTHROPIC_API_KEY found (recommended for JSON output)"
 	}
 
 	// Check for OpenAI key
 	if os.Getenv("OPENAI_API_KEY") != "" {
-		return ProviderOpenAI
+		return ProviderOpenAI, "OPENAI_API_KEY found"
 	}
 
 	// Check for Mistral key
 	if os.Getenv("MISTRAL_API_KEY") != "" {
-		return ProviderMistral
+		return ProviderMistral, "MISTRAL_API_KEY found"
 	}
 
-	// Check if Ollama is running
+	// Check if Ollama is running locally (no API key needed)
 	if IsOllamaAvailable() {
-		return ProviderOllama
+		return ProviderOllama, "local Ollama instance detected"
 	}
 
-	// Default to mock (offline mode)
-	return ProviderMock
+	// Default to mock (offline mode - uses project file signals)
+	return ProviderMock, "no API keys found, using offline mode (project file signals)"
+}
+
+// GetProviderSelectionDescription returns a human-readable description of provider selection
+func GetProviderSelectionDescription(info *ProviderSelectionInfo) string {
+	switch info.Source {
+	case "cli":
+		return "specified via --provider/--llm-provider flag"
+	case "env":
+		return "specified via RD_LLM_PROVIDER environment variable"
+	case "config":
+		return "specified in config file"
+	case "auto":
+		if info.AutoReason != "" {
+			return "auto-selected: " + info.AutoReason
+		}
+		return "auto-selected based on available API keys"
+	default:
+		return "default"
+	}
 }
 
 // GetProviderToken returns the appropriate token for a provider type

@@ -33,6 +33,11 @@ func (p *MockProvider) GeneratePlan(ctx *llm.PlanContext) (*llm.RunPlan, error) 
 		return p.fixedPlan, nil
 	}
 
+	// Handle nil context gracefully
+	if ctx == nil {
+		ctx = &llm.PlanContext{}
+	}
+
 	stack := "unknown"
 	if ctx.Profile != nil {
 		stack = ctx.Profile.Stack
@@ -154,48 +159,156 @@ func (p *MockProvider) nodePlan(ctx *llm.PlanContext) *llm.RunPlan {
 
 func (p *MockProvider) pythonPlan(ctx *llm.PlanContext) *llm.RunPlan {
 	tool := "pip"
-	installCmd := "pip install -r requirements.txt"
+	hasRequirements := true
+	hasPyproject := false
+	entryPoint := "" // Detected entry point file
 
 	if ctx.Profile != nil {
 		for _, t := range ctx.Profile.Tools {
 			switch t {
 			case "poetry":
 				tool = "poetry"
-				installCmd = "poetry install"
 			case "pipenv":
 				tool = "pipenv"
-				installCmd = "pipenv install"
+			case "uv":
+				tool = "uv"
 			}
 		}
 
 		for _, pkg := range ctx.Profile.Packages {
-			if pkg == "pyproject.toml" && tool == "pip" {
-				installCmd = "pip install -e ."
+			switch pkg {
+			case "pyproject.toml":
+				hasPyproject = true
+			case "requirements.txt":
+				hasRequirements = true
+			}
+		}
+
+		// Detect common Python entry points from signals
+		for _, signal := range ctx.Profile.Signals {
+			switch signal {
+			case "main.py":
+				if entryPoint == "" {
+					entryPoint = "main.py"
+				}
+			case "app.py":
+				if entryPoint == "" {
+					entryPoint = "app.py"
+				}
+			case "run.py":
+				if entryPoint == "" {
+					entryPoint = "run.py"
+				}
+			case "__main__.py":
+				// This indicates a package with __main__.py
+				entryPoint = "__main__"
+			case "manage.py":
+				// Django project
+				entryPoint = "manage.py runserver"
+			case "wsgi.py":
+				// WSGI application (Flask/Django)
+				if entryPoint == "" {
+					entryPoint = "wsgi"
+				}
 			}
 		}
 	}
 
-	runCmd := "python -m app"
-	if tool == "poetry" {
-		runCmd = "poetry run python -m app"
-	} else if tool == "pipenv" {
-		runCmd = "pipenv run python -m app"
+	var steps []llm.Step
+	var notes []string
+	var prereqs []llm.Prerequisite
+
+	prereqs = append(prereqs, llm.Prerequisite{
+		Name: "python", Reason: "Python runtime required", MinVersion: "3.8",
+	})
+
+	// Determine run command based on entry point
+	getRunCmd := func(pythonBin string) (string, bool) {
+		switch {
+		case entryPoint == "manage.py runserver":
+			return pythonBin + " manage.py runserver", true
+		case entryPoint == "main.py" || entryPoint == "app.py" || entryPoint == "run.py":
+			return pythonBin + " " + entryPoint, true
+		case entryPoint == "__main__":
+			return pythonBin + " .", true // Run as package
+		case entryPoint == "wsgi":
+			return pythonBin + " -m flask run", true
+		default:
+			return "", false // No entry point detected
+		}
+	}
+
+	switch tool {
+	case "poetry":
+		prereqs = append(prereqs, llm.Prerequisite{Name: "poetry", Reason: "Poetry for dependency management"})
+		steps = []llm.Step{
+			{ID: "install", Cmd: "poetry install", Cwd: ".", Risk: llm.RiskMedium, Description: "Install dependencies with Poetry"},
+		}
+		if runCmd, hasEntry := getRunCmd("poetry run python"); hasEntry {
+			steps = append(steps, llm.Step{
+				ID: "run", Cmd: runCmd, Cwd: ".", Risk: llm.RiskLow, Description: "Run application",
+			})
+		}
+		notes = append(notes, "Using Poetry for dependency management")
+
+	case "pipenv":
+		prereqs = append(prereqs, llm.Prerequisite{Name: "pipenv", Reason: "Pipenv for dependency management"})
+		steps = []llm.Step{
+			{ID: "install", Cmd: "pipenv install", Cwd: ".", Risk: llm.RiskMedium, Description: "Install dependencies with Pipenv"},
+		}
+		if runCmd, hasEntry := getRunCmd("pipenv run python"); hasEntry {
+			steps = append(steps, llm.Step{
+				ID: "run", Cmd: runCmd, Cwd: ".", Risk: llm.RiskLow, Description: "Run application",
+			})
+		}
+		notes = append(notes, "Using Pipenv for dependency management")
+
+	case "uv":
+		prereqs = append(prereqs, llm.Prerequisite{Name: "uv", Reason: "uv for fast dependency management"})
+		steps = []llm.Step{
+			{ID: "venv", Cmd: "uv venv", Cwd: ".", Risk: llm.RiskLow, Description: "Create virtual environment with uv"},
+			{ID: "install", Cmd: "uv pip install -r requirements.txt", Cwd: ".", Risk: llm.RiskMedium, Description: "Install dependencies with uv"},
+		}
+		if runCmd, hasEntry := getRunCmd(".venv/bin/python"); hasEntry {
+			steps = append(steps, llm.Step{
+				ID: "run", Cmd: runCmd, Cwd: ".", Risk: llm.RiskLow, Description: "Run application",
+			})
+		}
+		notes = append(notes, "Using uv for fast dependency management")
+
+	default:
+		// Standard pip with virtual environment (PEP 668 compliant)
+		installCmd := ".venv/bin/pip install -r requirements.txt"
+		if hasPyproject && !hasRequirements {
+			installCmd = ".venv/bin/pip install -e ."
+		}
+
+		steps = []llm.Step{
+			{ID: "venv", Cmd: "python3 -m venv .venv", Cwd: ".", Risk: llm.RiskLow, Description: "Create virtual environment"},
+			{ID: "install", Cmd: installCmd, Cwd: ".", Risk: llm.RiskMedium, Description: "Install dependencies in venv"},
+		}
+		if runCmd, hasEntry := getRunCmd(".venv/bin/python"); hasEntry {
+			steps = append(steps, llm.Step{
+				ID: "run", Cmd: runCmd, Cwd: ".", Risk: llm.RiskLow, Description: "Run application from venv",
+			})
+		}
+		notes = append(notes, "Using virtual environment (PEP 668 compliant)")
+		notes = append(notes, "Activate manually with: source .venv/bin/activate")
+	}
+
+	// If no entry point detected, add a helpful note
+	if entryPoint == "" {
+		notes = append(notes, "No entry point detected - check README for run instructions")
 	}
 
 	return &llm.RunPlan{
-		Version:     "1",
-		ProjectType: "python",
-		Prerequisites: []llm.Prerequisite{
-			{Name: "python", Reason: "Python runtime required", MinVersion: "3.8"},
-			{Name: tool, Reason: "Package manager for dependencies"},
-		},
-		Steps: []llm.Step{
-			{ID: "install", Cmd: installCmd, Cwd: ".", Risk: llm.RiskMedium},
-			{ID: "run", Cmd: runCmd, Cwd: ".", Risk: llm.RiskLow},
-		},
-		Env:   make(map[string]string),
-		Ports: []int{8000},
-		Notes: []string{"Using " + tool + " for dependency management"},
+		Version:       "1",
+		ProjectType:   "python",
+		Prerequisites: prereqs,
+		Steps:         steps,
+		Env:           make(map[string]string),
+		Ports:         []int{8000},
+		Notes:         notes,
 	}
 }
 
@@ -211,7 +324,7 @@ func (p *MockProvider) goPlan(ctx *llm.PlanContext) *llm.RunPlan {
 			{ID: "run", Cmd: "./app", Cwd: ".", Risk: llm.RiskLow},
 		},
 		Env:   make(map[string]string),
-		Ports: []int{8080},
+		Ports: []int{},
 		Notes: []string{"Go project with modules"},
 	}
 }
@@ -229,7 +342,7 @@ func (p *MockProvider) rustPlan(ctx *llm.PlanContext) *llm.RunPlan {
 			{ID: "run", Cmd: "cargo run --release", Cwd: ".", Risk: llm.RiskLow},
 		},
 		Env:   make(map[string]string),
-		Ports: []int{8080},
+		Ports: []int{},
 		Notes: []string{"Rust project using Cargo"},
 	}
 }
