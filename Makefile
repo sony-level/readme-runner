@@ -1,5 +1,5 @@
 APP=readme-run
-ALIAS=rd-run
+ALIAS=rdr
 
 .PHONY: fmt vet lint test build install clean run help
 

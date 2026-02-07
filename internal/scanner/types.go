@@ -11,7 +11,7 @@ import (
 // File type constants for detection
 const (
 	// README
-	FileTypeReadme = "readme"
+	FileTypeReadme = "README.md"
 
 	// Docker
 	FileTypeDockerfile = "Dockerfile"
@@ -30,6 +30,15 @@ const (
 	FileTypeSetupPy      = "setup.py"
 	FileTypePipfile      = "Pipfile"
 	FileTypePoetryLock   = "poetry.lock"
+
+	// Python entry points
+	FileTypePyMain     = "main.py"
+	FileTypePyApp      = "app.py"
+	FileTypePyRun      = "run.py"
+	FileTypePyManage   = "manage.py"    // Django
+	FileTypePyWsgi     = "wsgi.py"      // WSGI apps
+	FileTypePyAsgi     = "asgi.py"      // ASGI apps
+	FileTypePyDunder   = "__main__.py"  // Package entry point
 
 	// Go
 	FileTypeGoMod = "go.mod"
