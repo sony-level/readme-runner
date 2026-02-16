@@ -1,0 +1,109 @@
+# Labels Configuration for readme-runner
+# This file defines pertinent labels for the readme-runner repository
+# These labels can be synced using tools like github-label-sync or applied manually
+
+# Core Feature Areas
+- name: "cli"
+  color: "0052CC"
+  description: "Related to command-line interface functionality"
+
+- name: "automation"
+  color: "5319E7"
+  description: "Related to automated installation and execution features"
+
+- name: "readme-parsing"
+  color: "1D76DB"
+  description: "Related to parsing and analyzing README.md files"
+
+- name: "workspace"
+  color: "0E8A16"
+  description: "Related to workspace management and temporary directories"
+
+- name: "git-integration"
+  color: "F34F29"
+  description: "Related to Git repository cloning and fetching"
+
+# Technology Stack
+- name: "golang"
+  color: "00ADD8"
+  description: "Related to Go language implementation"
+
+# Issue Types
+- name: "bug"
+  color: "D73A4A"
+  description: "Something isn't working correctly"
+
+- name: "enhancement"
+  color: "A2EEEF"
+  description: "New feature or request"
+
+- name: "documentation"
+  color: "0075CA"
+  description: "Improvements or additions to documentation"
+
+- name: "security"
+  color: "D93F0B"
+  description: "Security-related issues or improvements"
+
+- name: "performance"
+  color: "FBCA04"
+  description: "Performance improvements or optimizations"
+
+# Priority Levels
+- name: "priority:high"
+  color: "B60205"
+  description: "High priority issue"
+
+- name: "priority:medium"
+  color: "FBCA04"
+  description: "Medium priority issue"
+
+- name: "priority:low"
+  color: "C5DEF5"
+  description: "Low priority issue"
+
+# Development Status
+- name: "good first issue"
+  color: "7057FF"
+  description: "Good for newcomers to the project"
+
+- name: "help wanted"
+  color: "008672"
+  description: "Extra attention is needed from the community"
+
+- name: "wontfix"
+  color: "FFFFFF"
+  description: "This will not be worked on"
+
+- name: "duplicate"
+  color: "CFD3D7"
+  description: "This issue or pull request already exists"
+
+# Feature Phases (based on code structure)
+- name: "phase:fetch"
+  color: "BFDADC"
+  description: "Related to Phase 1: Fetch/Workspace functionality"
+
+- name: "phase:scan"
+  color: "C2E0C6"
+  description: "Related to Phase 2: Scan functionality"
+
+- name: "phase:plan"
+  color: "FEF2C0"
+  description: "Related to Phase 3: Plan (AI) functionality"
+
+- name: "phase:validate"
+  color: "E1D5E7"
+  description: "Related to Phase 4: Validate/Normalize functionality"
+
+- name: "phase:prerequisites"
+  color: "FFE4B5"
+  description: "Related to Phase 5: Prerequisites functionality"
+
+- name: "phase:execute"
+  color: "D4C5F9"
+  description: "Related to Phase 6: Execute functionality"
+
+- name: "phase:cleanup"
+  color: "F9D0C4"
+  description: "Related to Phase 7: Post-run/Cleanup functionality"
